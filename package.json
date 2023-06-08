@@ -2,7 +2,7 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "devStart": "nodemon server.js",
@@ -23,8 +23,6 @@
     "mongodb": "^5.5.0",
     "mongoose": "^7.2.2",
     "nodemon": "^2.0.22",
-    "passport": "^0.6.0",
-    "passport-auth0": "^1.4.3",
     "stripe": "^12.7.0"
   }
 }
