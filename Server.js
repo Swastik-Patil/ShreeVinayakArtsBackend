@@ -113,11 +113,13 @@ async function storeOrderData(req, token) {
 
 // Authentication
 app.post("/check-login", async (req, res) => {
+  console.log("Got Token ", req.body.token);
   const token = req.body.token;
   if (token) {
     try {
       const decoded = jwt.decode(token);
       const userId = decoded.userId;
+      console.log(userId);
       res.status(200);
     } catch (error) {
       res.status(401);
