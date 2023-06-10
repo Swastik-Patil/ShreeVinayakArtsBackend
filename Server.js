@@ -10,6 +10,7 @@ const authRoutes = require("./routes/auth");
 const Purchase = require("./models/Purchase");
 const app = express();
 const port = process.env.PORT || 5001;
+const endpointSecret = process.env.STRIPE_ENDPOINT_SECRET;
 
 app.use(cors());
 app.use(express.json());
@@ -36,6 +37,9 @@ app.post("/getOrders", async (req, res) => {
   res.status(200).json({ purchases });
 });
 
+let order = [];
+let token = [];
+let index = 0;
 app.post("/purchase", async (req, res) => {
   let total = 0;
   let productIDs = [];
@@ -63,13 +67,10 @@ app.post("/purchase", async (req, res) => {
       cancel_url: `${process.env.CLIENT_URL}/order/cancel`,
     });
 
-    if ((await session.url) != `${process.env.CLIENT_URL}/cancel.html`) {
-      let id = session.id;
-      total = total / 100;
-      let items = req.body.items;
-      let order = { id, items, total };
-      storeOrderData(order, req.body.token);
-    }
+    let id = session.id;
+    let items = req.body.items;
+    order.push({ id, items });
+    token.push(req.body.token);
 
     res.json({ url: session.url });
   } catch (e) {
@@ -77,35 +78,70 @@ app.post("/purchase", async (req, res) => {
   }
 });
 
-// Store data after successful Stripe transactions
-async function storeOrderData(req, token) {
-  let orderNumber = req.orderNumber;
-  let amount = req.total;
-  let decoded = jwt.decode(token);
+// Stripe After payment
+// Set up a webhook endpoint to listen for successful payment events
+app.post("/webhook", (request, response) => {
+  const payloadString = JSON.stringify(request.body, null, 2);
+  let secret = endpointSecret;
+  let header = stripe.webhooks.generateTestHeaderString({
+    payload: payloadString,
+    secret,
+  });
+  let event = stripe.webhooks.constructEvent(payloadString, header, secret);
+  let success = false;
+  switch (event.type) {
+    case "charge.succeeded":
+      storeOrderData(
+        request.body.id,
+        request.body.data.object.receipt_url,
+        request.body.data.object.payment_method,
+        request.body.data.object.amount
+      );
+      success = true;
+      break;
+    case "payment_intent.canceled":
+      const paymentIntentCanceled = event.data.object;
+      break;
+    case "payment_intent.payment_failed":
+      const paymentIntentPaymentFailed = event.data.object;
+      success = false;
+      break;
+    case "checkout.session.completed":
+      const checkoutSessionCompleted = event.data.object;
+      break;
+    default:
+      break;
+  }
+
+  response.send({ isSuccess: success });
+});
+
+async function storeOrderData(id, receipt, mode, amount) {
+  amount = amount / 100;
+  let decoded = jwt.decode(token[index]);
   let userId = decoded.userId;
-  let orderItems = JSON.stringify(req.items);
+  let orderItems = JSON.stringify(order[index].items);
   let date = new Date().toDateString();
   try {
     const newData = [
       {
         userId: userId,
-        orderNumber: orderNumber,
+        orderId: id,
         orderItems: orderItems,
         amount: amount,
+        receipt: receipt,
+        mode: mode,
         date: date,
       },
     ];
 
     const result = await Purchase.insertMany(newData);
-
+    index += 1;
     if (result.writeErrors && result.writeErrors.length > 0) {
       console.error("Failed to add data:", result.writeErrors);
     } else {
       console.log("Data added to the purchases collection");
     }
-
-    await mongoose.disconnect();
-    console.log("Disconnected from MongoDB");
   } catch (error) {
     console.error("Failed to add data:", error);
   }

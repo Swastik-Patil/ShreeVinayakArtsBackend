@@ -1,10 +1,12 @@
 const mongoose = require("mongoose");
 
 const purchaseSchema = new mongoose.Schema({
-  orderNumber: String,
-  amount: Number,
   userId: String,
+  OrderId: String,
   orderItems: String,
+  amount: Number,
+  receipt: String,
+  mode: String,
   date: String,
 });
 
