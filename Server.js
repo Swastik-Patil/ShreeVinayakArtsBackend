@@ -117,12 +117,13 @@ app.post("/webhook", (request, response) => {
 });
 
 async function storeOrderData(id, receipt, mode, amount) {
-  amount = amount / 100;
-  let decoded = jwt.decode(token[index]);
-  let userId = decoded.userId;
-  let orderItems = JSON.stringify(order[index].items);
-  let date = new Date().toDateString();
   try {
+    amount = amount / 100;
+    let decoded = jwt.decode(token[index]);
+    let userId = decoded.userId;
+    let orderItems = JSON.stringify(order[index].items);
+    let date = new Date().toDateString();
+    console.log(orderItems);
     const newData = [
       {
         userId: userId,
